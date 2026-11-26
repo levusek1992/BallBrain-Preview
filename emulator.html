@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>BallBrain — Emulator Androida (Live)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: radial-gradient(circle at 50% 25%, #16243d 0%, #0b1220 100%);
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .gate {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 50% 30%, #1e3a5f 0%, #09101d 100%);
+      padding: 20px;
+    }
+    .gate.hidden { display: none; }
+    .gate-card {
+      width: min(380px, 94vw);
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 22px;
+      padding: 28px 24px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+      text-align: center;
+    }
+    .gate-card h1 { font-size: 26px; margin-bottom: 6px; color: #fde047; }
+    .gate-card p { font-size: 14px; color: #cbd5e1; margin-bottom: 18px; }
+    .gate-card input {
+      width: 100%; padding: 12px 14px; border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(30, 41, 59, 0.9); color: #fff;
+      font-size: 16px; outline: none; margin-bottom: 12px; text-align: center;
+    }
+    .gate-card input:focus { border-color: #38bdf8; }
+    .gate-card button {
+      width: 100%; padding: 12px; border-radius: 12px; border: 0;
+      background: linear-gradient(135deg, #22c55e, #0ea5e9);
+      color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+    .gate-err { color: #f87171; font-size: 13px; min-height: 18px; margin-top: 10px; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 8px 16px;
+      background: rgba(15, 23, 42, 0.88);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+    .badge {
+      background: linear-gradient(135deg, #22c55e, #0ea5e9);
+      color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 700;
+    }
+    .hint { font-size: 12px; color: #cbd5e1; }
+    .hint kbd {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 5px; padding: 1px 6px; font-size: 11px; font-weight: 700; color: #fff;
+    }
+    .controls { display: flex; gap: 6px; align-items: center; }
+    .btn {
+      background: rgba(51, 65, 85, 0.85); color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .btn:hover { background: rgba(71, 85, 105, 0.95); }
+    .btn.active { background: #2563eb; border-color: #60a5fa; }
+    .stage {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 16px; min-height: 0;
+    }
+    .phone-frame {
+      position: relative;
+      width: min(94vw, calc((100vh - 88px) * 20 / 9));
+      aspect-ratio: 20 / 9;
+      background: #020617;
+      border-radius: 30px;
+      padding: 12px 26px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.65), inset 0 0 0 2px rgba(255,255,255,0.14);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .phone-frame.ratio-16-9 {
+      width: min(94vw, calc((100vh - 88px) * 16 / 9));
+      aspect-ratio: 16 / 9;
+    }
+    .phone-frame.fullscreen {
+      width: 100%; height: 100%; aspect-ratio: auto;
+      border-radius: 0; padding: 0; box-shadow: none;
+    }
+    .camera-dot {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #1e293b; box-shadow: inset 0 0 0 2px #334155;
+    }
+    .phone-frame.fullscreen .camera-dot { display: none; }
+    iframe {
+      width: 100%; height: 100%; border: 0;
+      border-radius: 18px; background: #000;
+    }
+    .phone-frame.fullscreen iframe { border-radius: 0; }
+  </style>
+</head>
+<body>
+  <div class="gate" id="gate">
+    <form class="gate-card" onsubmit="unlock(event)">
+      <h1>BallBrain</h1>
+      <p>Podaj hasło, aby uruchomić emulator gry</p>
+      <input type="password" id="pwd" placeholder="Hasło..." autocomplete="off" autofocus />
+      <button type="submit">Uruchom grę</button>
+      <div class="gate-err" id="err"></div>
+    </form>
+  </div>
+
+  <div class="topbar">
+    <div class="brand">
+      <span>BallBrain</span>
+      <span class="badge">LIVE 3D EMULATOR</span>
+    </div>
+    <div class="hint">
+      Sterowanie: <kbd>A</kbd> <kbd>D</kbd> lub <kbd>←</kbd> <kbd>→</kbd> &nbsp;•&nbsp;
+      Moce: <kbd>1</kbd> Żółw, <kbd>2</kbd> Rakieta &nbsp;•&nbsp;
+      <kbd>R</kbd> Restart
+    </div>
+    <div class="controls">
+      <button class="btn active" id="btn209" onclick="setMode('20-9')">Telefon 20:9</button>
+      <button class="btn" id="btn169" onclick="setMode('16-9')">16:9</button>
+      <button class="btn" id="btnFull" onclick="setMode('full')">Pełny ekran</button>
+      <button class="btn" onclick="reloadGame()">↻ Odśwież</button>
+    </div>
+  </div>
+  <div class="stage" id="stage">
+    <div class="phone-frame" id="frame">
+      <div class="camera-dot"></div>
+      <iframe id="gameFrame" src="about:blank" allow="autoplay; fullscreen; accelerometer; gyroscope"></iframe>
+    </div>
+  </div>
+  <script>
+    const PASS_HASH = '8d690ead2c1e9877ed3238b949001b3135a86fe972c11a8c912427fc22082052';
+    const frame = document.getElementById('frame');
+    const gameFrame = document.getElementById('gameFrame');
+    const gate = document.getElementById('gate');
+    const err = document.getElementById('err');
+
+    async function sha256(str) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function launchGame() {
+      gate.classList.add('hidden');
+      gameFrame.src = './index.html?v=054';
+      setTimeout(() => gameFrame.focus(), 200);
+    }
+
+    async function unlock(e) {
+      e.preventDefault();
+      const val = document.getElementById('pwd').value.trim();
+      const h = await sha256(val);
+      if (h === PASS_HASH) {
+        sessionStorage.setItem('bb_ok', '1');
+        err.textContent = '';
+        launchGame();
+      } else {
+        err.textContent = 'Nieprawidłowe hasło';
+      }
+    }
+
+    function setMode(mode) {
+      frame.classList.remove('ratio-16-9', 'fullscreen');
+      document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
+      if (mode === '16-9') {
+        frame.classList.add('ratio-16-9');
+        document.getElementById('btn169').classList.add('active');
+      } else if (mode === 'full') {
+        frame.classList.add('fullscreen');
+        document.getElementById('btnFull').classList.add('active');
+      } else {
+        document.getElementById('btn209').classList.add('active');
+      }
+      setTimeout(() => gameFrame.focus(), 100);
+    }
+
+    function reloadGame() {
+      gameFrame.src = './index.html?t=' + Date.now();
+      setTimeout(() => gameFrame.focus(), 150);
+    }
+
+    if (sessionStorage.getItem('bb_ok') === '1') {
+      launchGame();
+    }
+  </script>
+</body>
+</html>
